@@ -6,6 +6,7 @@
 #include <sstream>
 #include <iostream>
 #include <iomanip>
+#include <algorithm>
 #include <cstdio>   // needed for io
 #include "fastjet/ClusterSequence.hh"
 
@@ -31,9 +32,10 @@ int main(int argc, char* argv[]) {
  // read in the events
  int evIdCurr = 2147483646;  // a huge number not equal to any real event ID
  int nEvents = -1;
- vector<vector<int> > typeIn, colIn, acolIn;
+ vector<vector<int> > typeIn, colIn, acolIn, jetIdIn;
  vector<vector<double> > EIn, pxIn, pyIn, pzIn, timeIn;
  const int __Nevents = 200;
+ jetIdIn.resize(__Nevents);
  typeIn.resize(__Nevents);
  colIn.resize(__Nevents);
  acolIn.resize(__Nevents);
@@ -51,6 +53,7 @@ int main(int argc, char* argv[]) {
   >> __E >> __px >> __py >> __pz >> __time;
   if(eventId!=evIdCurr) nEvents++;
   evIdCurr = eventId;
+  jetIdIn[nEvents].push_back(jetId);
   typeIn[nEvents].push_back(__type);
   colIn[nEvents].push_back(__col);
   acolIn[nEvents].push_back(__acol);
@@ -73,8 +76,10 @@ int main(int argc, char* argv[]) {
    //  pow(pzIn[iEvent].at(i),2));
    //double rap = 0.5*log((pmod+pzIn[iEvent].at(i))/(pmod-pzIn[iEvent].at(i)));
    //if(fabs(rap)<1.5)  // no unexpected difference for vacuum jets!
-   input_particles.push_back(fastjet::PseudoJet(pxIn[iEvent].at(i),
-     pyIn[iEvent].at(i), pzIn[iEvent].at(i), EIn[iEvent].at(i)));
+   fastjet::PseudoJet particle (pxIn[iEvent].at(i),
+     pyIn[iEvent].at(i), pzIn[iEvent].at(i), EIn[iEvent].at(i));
+   particle.set_user_index(jetIdIn[iEvent].at(i));
+   input_particles.push_back(particle);
   }
   // create a jet definition: 
   // a jet algorithm with a given radius parameter
@@ -103,13 +108,30 @@ int main(int argc, char* argv[]) {
    //i, inclusive_jets[i].rap(), inclusive_jets[i].phi(),
    //inclusive_jets[i].perp());
    vector<fastjet::PseudoJet> constituents = inclusive_jets[i].constituents();
+   map<int,int> origins; // map containing the indexes of jets the partons are coming from
    bool leadingTrigg = false;
-   for(fastjet::PseudoJet ptl : constituents)
-    if(ptl.perp() > 5.0)  leadingTrigg = true;
+   for(fastjet::PseudoJet ptl : constituents) {
+    if(ptl.perp() > 5.0) leadingTrigg = true;
+    int origJet = ptl.user_index(); // get back the index of original jet
+    if(origins.count(origJet)==0)
+     origins[origJet] = 1;
+    else
+     origins[origJet] += 1;
+   }
+   vector <int> listOrigins;
+   listOrigins.reserve(10);
+   for(auto it = origins.begin(); it != origins.end(); ++it) {
+    listOrigins.push_back(it->second);
+   }
+   while(listOrigins.size()<4)
+    listOrigins.push_back(0);
+   sort(listOrigins.begin(), listOrigins.end(), std::greater<int>());
    //if(leadingTrigg)
    fout << setw(8) << iEvent << setw(14) << inclusive_jets[i].E()
       << setw(14) << inclusive_jets[i].px() << setw(14) << inclusive_jets[i].py()
-      << setw(14) << inclusive_jets[i].pz() << endl;
+      << setw(14) << inclusive_jets[i].pz()
+      << setw(14) << listOrigins[0] << setw(14) << listOrigins[1]
+      << setw(14) << listOrigins[2] << setw(14) << listOrigins[3] << endl;
    // print selected jets on screen
    //if(leadingTrigg && inclusive_jets[i].perp()>20.0 && inclusive_jets[i].perp()<24.0) {
     //cout << setw(8) << constituents.size() << setw(14) << inclusive_jets[i].E()
