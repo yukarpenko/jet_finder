@@ -108,30 +108,30 @@ int main(int argc, char* argv[]) {
    //i, inclusive_jets[i].rap(), inclusive_jets[i].phi(),
    //inclusive_jets[i].perp());
    vector<fastjet::PseudoJet> constituents = inclusive_jets[i].constituents();
-   map<int,int> origins; // map containing the indexes of jets the partons are coming from
+   map<int,double> origins; // map containing the indexes of jets the partons are coming from
    bool leadingTrigg = false;
    for(fastjet::PseudoJet ptl : constituents) {
     if(ptl.perp() > 5.0) leadingTrigg = true;
     int origJet = ptl.user_index(); // get back the index of original jet
     if(origins.count(origJet)==0)
-     origins[origJet] = 1;
+     origins[origJet] = sqrt(ptl.px()*ptl.px()+ptl.py()*ptl.py());
     else
-     origins[origJet] += 1;
+     origins[origJet] += sqrt(ptl.px()*ptl.px()+ptl.py()*ptl.py());//ptl.perp();
    }
-   vector <int> listOrigins;
-   listOrigins.reserve(10);
+   vector <double> listFractions;
+   listFractions.reserve(10);
    for(auto it = origins.begin(); it != origins.end(); ++it) {
-    listOrigins.push_back(it->second);
+    listFractions.push_back(it->second);
    }
-   while(listOrigins.size()<4)
-    listOrigins.push_back(0);
-   sort(listOrigins.begin(), listOrigins.end(), std::greater<int>());
+   while(listFractions.size()<4)
+    listFractions.push_back(0);
+   sort(listFractions.begin(), listFractions.end(), std::greater<double>());
    //if(leadingTrigg)
    fout << setw(8) << iEvent << setw(14) << inclusive_jets[i].E()
       << setw(14) << inclusive_jets[i].px() << setw(14) << inclusive_jets[i].py()
       << setw(14) << inclusive_jets[i].pz()
-      << setw(14) << listOrigins[0] << setw(14) << listOrigins[1]
-      << setw(14) << listOrigins[2] << setw(14) << listOrigins[3] << endl;
+      << setw(14) << listFractions[0] << setw(14) << listFractions[1]
+      << setw(14) << listFractions[2] << setw(14) << listFractions[3] << endl;
    // print selected jets on screen
    //if(leadingTrigg && inclusive_jets[i].perp()>20.0 && inclusive_jets[i].perp()<24.0) {
     //cout << setw(8) << constituents.size() << setw(14) << inclusive_jets[i].E()
