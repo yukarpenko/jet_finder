@@ -12,6 +12,8 @@
 
 using namespace std;
 
+void outputJetTotalsWfracs(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets);
+void outputFullJets(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets);
 
 int main(int argc, char* argv[]) {
 
@@ -102,47 +104,74 @@ int main(int argc, char* argv[]) {
   // label the columns
   //printf("%5s %15s %15s %15s\n","jet #", "rapidity", "phi", "pt");
  
-  // print out the details for each jet
-  for (unsigned int i = 0; i < inclusive_jets.size(); i++) {
-   //originally: printf("%5u %15.8f %15.8f %15.8f\n",
-   //i, inclusive_jets[i].rap(), inclusive_jets[i].phi(),
-   //inclusive_jets[i].perp());
-   vector<fastjet::PseudoJet> constituents = inclusive_jets[i].constituents();
-   map<int,double> origins; // map containing the indexes of jets the partons are coming from
-   bool leadingTrigg = false;
-   for(fastjet::PseudoJet ptl : constituents) {
-    if(ptl.perp() > 5.0) leadingTrigg = true;
-    int origJet = ptl.user_index(); // get back the index of original jet
-    if(origins.count(origJet)==0)
-     origins[origJet] = sqrt(ptl.px()*ptl.px()+ptl.py()*ptl.py());
-    else
-     origins[origJet] += sqrt(ptl.px()*ptl.px()+ptl.py()*ptl.py());//ptl.perp();
-   }
-   vector <double> listFractions;
-   listFractions.reserve(10);
-   for(auto it = origins.begin(); it != origins.end(); ++it) {
-    listFractions.push_back(it->second);
-   }
-   while(listFractions.size()<4)
-    listFractions.push_back(0);
-   sort(listFractions.begin(), listFractions.end(), std::greater<double>());
-   //if(leadingTrigg)
-   fout << setw(8) << iEvent << setw(14) << inclusive_jets[i].E()
-      << setw(14) << inclusive_jets[i].px() << setw(14) << inclusive_jets[i].py()
-      << setw(14) << inclusive_jets[i].pz()
-      << setw(14) << listFractions[0] << setw(14) << listFractions[1]
-      << setw(14) << listFractions[2] << setw(14) << listFractions[3] << endl;
-   // print selected jets on screen
-   //if(leadingTrigg && inclusive_jets[i].perp()>20.0 && inclusive_jets[i].perp()<24.0) {
-    //cout << setw(8) << constituents.size() << setw(14) << inclusive_jets[i].E()
-      //<< setw(14) << inclusive_jets[i].perp() << setw(14) << inclusive_jets[i].phi()
-      //<< setw(14) << inclusive_jets[i].rap() << endl;
-    //vector<fastjet::PseudoJet> constituents = inclusive_jets[i].constituents();
-    //for(fastjet::PseudoJet ptl : constituents)
-     //cout << "  * " << setw(14) << ptl.E() << setw(14) << ptl.perp()
-      //<< setw(14) << ptl.phi() << setw(14) << ptl.rap() << endl;
-   //} // end print
-  }
+  outputJetTotalsWfracs(fout, iEvent, inclusive_jets);
+  //outputFullJets(fout, iEvent, inclusive_jets);
+
  } // end event loop
   return 0;
+}
+
+
+void outputJetTotalsWfracs(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets)
+// prints global jet properties (energy-momentum and fractions) to a file
+{
+ for (unsigned int i = 0; i < jets.size(); i++) {
+  //originally: printf("%5u %15.8f %15.8f %15.8f\n",
+  //i, inclusive_jets[i].rap(), inclusive_jets[i].phi(),
+  //inclusive_jets[i].perp());
+  vector<fastjet::PseudoJet> constituents = jets[i].constituents();
+  map<int,double> origins; // map containing the indexes of jets the partons are coming from
+  bool leadingTrigg = false;
+  for(fastjet::PseudoJet ptl : constituents) {
+   if(ptl.perp() > 5.0) leadingTrigg = true;
+   int origJet = ptl.user_index(); // get back the index of original jet
+   if(origins.count(origJet)==0)
+    origins[origJet] = sqrt(ptl.px()*ptl.px()+ptl.py()*ptl.py());
+   else
+    origins[origJet] += sqrt(ptl.px()*ptl.px()+ptl.py()*ptl.py());//ptl.perp();
+  }
+  vector <double> listFractions;
+  listFractions.reserve(10);
+  for(auto it = origins.begin(); it != origins.end(); ++it) {
+   listFractions.push_back(it->second);
+  }
+  while(listFractions.size()<4)
+   listFractions.push_back(0);
+  sort(listFractions.begin(), listFractions.end(), std::greater<double>());
+  //if(leadingTrigg)
+  fout << setw(8) << iEvent << setw(14) << jets[i].E()
+     << setw(14) << jets[i].px() << setw(14) << jets[i].py()
+     << setw(14) << jets[i].pz()
+     << setw(14) << listFractions[0] << setw(14) << listFractions[1]
+     << setw(14) << listFractions[2] << setw(14) << listFractions[3] << endl;
+  // print selected jets on screen
+  //if(leadingTrigg && inclusive_jets[i].perp()>20.0 && inclusive_jets[i].perp()<24.0) {
+   //cout << setw(8) << constituents.size() << setw(14) << inclusive_jets[i].E()
+     //<< setw(14) << inclusive_jets[i].perp() << setw(14) << inclusive_jets[i].phi()
+     //<< setw(14) << inclusive_jets[i].rap() << endl;
+   //vector<fastjet::PseudoJet> constituents = inclusive_jets[i].constituents();
+   //for(fastjet::PseudoJet ptl : constituents)
+    //cout << "  * " << setw(14) << ptl.E() << setw(14) << ptl.perp()
+     //<< setw(14) << ptl.phi() << setw(14) << ptl.rap() << endl;
+  //} // end print
+ }
+}
+
+
+void outputFullJets(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets)
+// output for jet structure plots
+{
+ for (unsigned int i = 0; i < jets.size(); i++) {
+  vector<fastjet::PseudoJet> constituents = jets[i].constituents();
+  bool leadingTrigg = false;
+  for(fastjet::PseudoJet ptl : constituents)
+   if(ptl.perp() > 5.0) leadingTrigg = true;
+  //if(leadingTrigg)
+  for(fastjet::PseudoJet ptl : constituents) {
+   double phi = ptl.delta_R(jets[i]);
+   fout << setw(8) << iEvent << setw(8) << i
+     << setw(14) << jets[i].perp() << setw(14) << jets[i].rap()
+     << setw(14) << ptl.perp() << setw(14) << phi << endl;
+   }
+ }
 }
