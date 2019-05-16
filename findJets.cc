@@ -90,19 +90,9 @@ int main(int argc, char* argv[]) {
   // run the jet clustering with the above jet definition
   fastjet::ClusterSequence clust_seq(input_particles, jet_def);
 
-
   // get the resulting jets ordered in pt
   double ptmin = 3.0;
   vector<fastjet::PseudoJet> inclusive_jets = sorted_by_pt(clust_seq.inclusive_jets(ptmin));
-  // tell the user what was done
-  //  - the description of the algorithm used
-  //  - extract the inclusive jets with pt > 5 GeV
-  //    show the output as 
-  //      {index, rap, phi, pt}
-  //cout << "Ran " << jet_def.description() << endl;
-
-  // label the columns
-  //printf("%5s %15s %15s %15s\n","jet #", "rapidity", "phi", "pt");
  
   outputJetTotalsWfracs(fout, iEvent, inclusive_jets);
   //outputFullJets(fout, iEvent, inclusive_jets);
@@ -116,9 +106,6 @@ void outputJetTotalsWfracs(ofstream& fout, int iEvent, vector<fastjet::PseudoJet
 // prints global jet properties (energy-momentum and fractions) to a file
 {
  for (unsigned int i = 0; i < jets.size(); i++) {
-  //originally: printf("%5u %15.8f %15.8f %15.8f\n",
-  //i, inclusive_jets[i].rap(), inclusive_jets[i].phi(),
-  //inclusive_jets[i].perp());
   vector<fastjet::PseudoJet> constituents = jets[i].constituents();
   map<int,double> origins; // map containing the indexes of jets the partons are coming from
   bool leadingTrigg = false;
@@ -144,16 +131,6 @@ void outputJetTotalsWfracs(ofstream& fout, int iEvent, vector<fastjet::PseudoJet
      << setw(14) << jets[i].pz()
      << setw(14) << listFractions[0] << setw(14) << listFractions[1]
      << setw(14) << listFractions[2] << setw(14) << listFractions[3] << endl;
-  // print selected jets on screen
-  //if(leadingTrigg && inclusive_jets[i].perp()>20.0 && inclusive_jets[i].perp()<24.0) {
-   //cout << setw(8) << constituents.size() << setw(14) << inclusive_jets[i].E()
-     //<< setw(14) << inclusive_jets[i].perp() << setw(14) << inclusive_jets[i].phi()
-     //<< setw(14) << inclusive_jets[i].rap() << endl;
-   //vector<fastjet::PseudoJet> constituents = inclusive_jets[i].constituents();
-   //for(fastjet::PseudoJet ptl : constituents)
-    //cout << "  * " << setw(14) << ptl.E() << setw(14) << ptl.perp()
-     //<< setw(14) << ptl.phi() << setw(14) << ptl.rap() << endl;
-  //} // end print
  }
 }
 
