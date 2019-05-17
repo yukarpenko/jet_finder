@@ -14,6 +14,7 @@ using namespace std;
 
 void outputJetTotalsWfracs(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets);
 void outputFullJets(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets);
+void outputFullJets_WTA(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets, double R);
 
 int main(int argc, char* argv[]) {
 
@@ -96,6 +97,7 @@ int main(int argc, char* argv[]) {
  
   outputJetTotalsWfracs(fout, iEvent, inclusive_jets);
   //outputFullJets(fout, iEvent, inclusive_jets);
+  //outputFullJets_WTA(fout, iEvent, inclusive_jets, R);
 
  } // end event loop
   return 0;
@@ -146,6 +148,37 @@ void outputFullJets(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets
   //if(leadingTrigg)
   for(fastjet::PseudoJet ptl : constituents) {
    double phi = ptl.delta_R(jets[i]);
+   fout << setw(8) << iEvent << setw(8) << i
+     << setw(14) << jets[i].perp() << setw(14) << jets[i].rap()
+     << setw(14) << ptl.perp() << setw(14) << phi << endl;
+   }
+ }
+}
+
+
+void outputFullJets_WTA(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets, double R)
+// output for jet structure plots
+{
+ for (unsigned int i = 0; i < jets.size(); i++) {
+  vector<fastjet::PseudoJet> constituents = jets[i].constituents();
+  bool leadingTrigg = false;
+  vector<fastjet::PseudoJet> input_particles; // to be filled with constituents for the 2nd jet finding
+  input_particles.clear();
+  for(fastjet::PseudoJet ptl : constituents) {
+   if(ptl.perp() > 5.0) leadingTrigg = true; // hard z trigger
+   input_particles.push_back(ptl);
+  }
+  fastjet::JetDefinition jet_def(fastjet::antikt_algorithm, R, fastjet::WTA_pt_scheme);
+  fastjet::ClusterSequence clust_seq(input_particles, jet_def);
+  double ptmin = 3.0;
+  vector<fastjet::PseudoJet> foundJets2 = sorted_by_pt(clust_seq.inclusive_jets(ptmin));
+  //cout << "-------\n";
+  //for(fastjet::PseudoJet jets2 : foundJets2) {
+   //cout << "FoundJets2: " << jets2.perp() << endl;
+  //}
+  //if(leadingTrigg)
+  for(fastjet::PseudoJet ptl : constituents) {
+   double phi = ptl.delta_R(foundJets2[0]);
    fout << setw(8) << iEvent << setw(8) << i
      << setw(14) << jets[i].perp() << setw(14) << jets[i].rap()
      << setw(14) << ptl.perp() << setw(14) << phi << endl;
