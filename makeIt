@@ -1,0 +1,3 @@
+#!/bin/bash
+
+g++ -std=c++11 findJets.cc `../bin/fastjet-config --cxxflags --libs --plugins` -o findJets
