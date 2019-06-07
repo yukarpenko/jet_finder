@@ -30,12 +30,18 @@ void outputJetTotalsWfracs(ofstream& fout, int iEvent, vector<fastjet::PseudoJet
 void outputFullJets(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets);
 void outputFullJets_WTA(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets, double R);
 
-void processEvents(TString dirname);
+void processEvents(TString dirname, int color);
+
+TCanvas *cpt, *cRho;
 
 int main(int argc, char* argv[]) {
  TApplication theApp("App", &argc, argv);
+ cpt = new TCanvas("pT","pT") ;
+ cRho = new TCanvas("jet structure","jet structure") ;
  time_t time0 = time(nullptr);
- processEvents("/dlocal/eposvhlle.out/b0b34_trig50_hybM_NOrec/events/");
+ processEvents("/dlocal/eposvhlle.out/b0b34_trig50_vac7/events/", kBlack);
+ processEvents("/dlocal/eposvhlle.out/b0b34_trig50_hybM_NOrec/events/", kGreen);
+ processEvents("/dlocal/eposvhlle.out/b0b34_trig50_hybM_rec/events/", kRed);
  time_t time1 = time(nullptr);
  cout << "walltime: " << difftime(time1, time0) << " s.\n";
  //----------------------------------------------------------
@@ -77,8 +83,9 @@ int main(int argc, char* argv[]) {
 }
 
 
-void processEvents(TString dirname)
+void processEvents(TString dirname, int color)
 {
+ static int iPlotSeq = 0;
  // loadnig the tree
  TChain *tree = new TChain("treefin;1");
  TSystemDirectory dir ("rootfiles",dirname);
@@ -108,9 +115,14 @@ void processEvents(TString dirname)
  tree->SetBranchAddress("ele",&ele[0]) ;
  tree->SetBranchAddress("npart",&npart) ;
  cout<<"processing, events = "<<nevents<<endl ;
- TH1F *hpt = new TH1F("hpt", "hpt", 20, 0., 200.);
- TH1F *hptJet = new TH1F("hptJet", "hptJet", 20, 0., 200.);
- TH1F *hRho = new TH1F("rhoJet", "rhoJet", 20, 0., 0.6);
+ TH1F *hpt = new TH1F(("hpt"+to_string(iPlotSeq)).c_str(),
+    ("hpt"+to_string(iPlotSeq)).c_str(), 20, 0., 200.);
+ TH1F *hptJet = new TH1F(("hptJet"+to_string(iPlotSeq)).c_str(),
+    ("hptJet"+to_string(iPlotSeq)).c_str(), 20, 0., 200.);
+ TH1F *hRho = new TH1F(("rhoJet"+to_string(iPlotSeq)).c_str(),
+    ("rhoJet"+to_string(iPlotSeq)).c_str(), 20, 0., 0.6);
+  TH1F *hRhoMed = new TH1F(("rhoMed"+to_string(iPlotSeq)).c_str(),
+    ("rhoMed"+to_string(iPlotSeq)).c_str(), 20, 0., 0.6);
  for(int iev=0; iev<nevents; iev++) { // event loop
   tree->GetEntry(iev) ;
   vector<fastjet::PseudoJet> input_particles;
@@ -121,15 +133,15 @@ void processEvents(TString dirname)
    if(status[ip]==10 && fabs(rap)<1.0) {
     hpt->Fill(pt);
    }
-   // filling Fastjet input
-   if(status[ip]<10 && pt>1.5 && fabs(rap)<1.0) {
+   // constructing Fastjet input
+   if(status[ip]==1 && pt>0.5 && fabs(rap)<1.0) {
    fastjet::PseudoJet particle (px[ip], py[ip], pz[ip], E[ip]);
-   particle.set_user_index(0);
+   particle.set_user_index(status[ip]);
    input_particles.push_back(particle);
    }
   } // end of particle loop
   // jet finding
-  double R = 0.4;
+  double R = 0.3;
   fastjet::JetDefinition jet_def(fastjet::antikt_algorithm, R);
   // run the jet clustering with the above jet definition
   fastjet::ClusterSequence clust_seq(input_particles, jet_def);
@@ -144,19 +156,27 @@ void processEvents(TString dirname)
     for(fastjet::PseudoJet ptl : constituents) {
      double phi = ptl.delta_R(jets[i]);
      hRho->Fill(phi, ptl.perp());
+     if(ptl.user_index()==0) hRhoMed->Fill(phi, ptl.perp());
     }
    }
   }
  } // end of event loop
  // normalizing histos
- TCanvas *c1 = new TCanvas("pT","pT") ;
+ const char* drawOpt = iPlotSeq==0? "" : "same";
+ cpt->cd();
  hpt->Scale(1./(hpt->GetBinWidth(1)*2. * nevents));
- hpt->Draw();
+ hpt->Draw(drawOpt);
  hptJet->Scale(1./(hptJet->GetBinWidth(1)*2. * nevents));
  hptJet->Draw("same");
- TCanvas *c2 = new TCanvas("jet structure","jet structure") ;
+ cRho->cd();
  hRho->Scale(1./(nevents));
- hRho->Draw();
+ hRho->SetLineColor(color);
+ hRho->Draw(drawOpt);
+ hRhoMed->Scale(1./(nevents));
+ hRhoMed->SetLineColor(color);
+ hRhoMed->SetMarkerStyle(22);
+ hRhoMed->Draw("same");
+ iPlotSeq++;
 }
 
 
