@@ -32,16 +32,17 @@ void outputFullJets_WTA(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& 
 
 void processEvents(TString dirname, int color);
 
-TCanvas *cpt, *cRho;
+TCanvas *cptJet, *cptHad, *cRho;
 
 int main(int argc, char* argv[]) {
  TApplication theApp("App", &argc, argv);
- cpt = new TCanvas("pT","pT") ;
+ cptJet = new TCanvas("jet_pT","jet_pT") ;
+ cptHad = new TCanvas("hadron_pT","hadron_pT") ;
  cRho = new TCanvas("jet structure","jet structure") ;
  time_t time0 = time(nullptr);
- processEvents("/dlocal/eposvhlle.out/b0b34_trig50_vac7/events/", kBlack);
- processEvents("/dlocal/eposvhlle.out/b0b34_trig50_hybM_NOrec/events/", kGreen);
- processEvents("/dlocal/eposvhlle.out/b0b34_trig50_hybM_rec/events/", kRed);
+ processEvents("../../eposvhlle.out/b0b34_trig50_vac7/events/", kBlack);
+ processEvents("../../eposvhlle.out/b0b34_trig50_hybM_NOrec/events/", kGreen);
+ processEvents("../../eposvhlle.out/b0b34_trig50_hybM_rec/events/", kRed);
  time_t time1 = time(nullptr);
  cout << "walltime: " << difftime(time1, time0) << " s.\n";
  //----------------------------------------------------------
@@ -116,9 +117,11 @@ void processEvents(TString dirname, int color)
  tree->SetBranchAddress("npart",&npart) ;
  cout<<"processing, events = "<<nevents<<endl ;
  TH1F *hpt = new TH1F(("hpt"+to_string(iPlotSeq)).c_str(),
-    ("hpt"+to_string(iPlotSeq)).c_str(), 20, 0., 200.);
+    ("hpt"+to_string(iPlotSeq)).c_str(), 10, 0., 100.);
  TH1F *hptJet = new TH1F(("hptJet"+to_string(iPlotSeq)).c_str(),
-    ("hptJet"+to_string(iPlotSeq)).c_str(), 20, 0., 200.);
+    ("hptJet"+to_string(iPlotSeq)).c_str(), 10, 0., 100.);
+ TH1F *hptJetHad = new TH1F(("hptJetHadrons"+to_string(iPlotSeq)).c_str(),
+    ("hptJetHadrons"+to_string(iPlotSeq)).c_str(), 10, 0., 100.);
  TH1F *hRho = new TH1F(("rhoJet"+to_string(iPlotSeq)).c_str(),
     ("rhoJet"+to_string(iPlotSeq)).c_str(), 20, 0., 0.6);
   TH1F *hRhoMed = new TH1F(("rhoMed"+to_string(iPlotSeq)).c_str(),
@@ -130,11 +133,11 @@ void processEvents(TString dirname, int color)
   for(int ip=0; ip<npart; ip++) { // particle loop
    double rap = 0.5*log((E[ip]+pz[ip])/(E[ip]-pz[ip]));
    double pt = sqrt(px[ip]*px[ip]+py[ip]*py[ip]);
-   if(status[ip]==10 && fabs(rap)<1.0) {
+   if(status[ip]<10 && fabs(rap)<1.0) {
     hpt->Fill(pt);
    }
    // constructing Fastjet input
-   if(status[ip]==1 && pt>0.5 && fabs(rap)<1.0) {
+   if(((status[ip]==1 && pt>0.5) || (status[ip]==0 && pt>1.5)) && fabs(rap)<1.0) {
    fastjet::PseudoJet particle (px[ip], py[ip], pz[ip], E[ip]);
    particle.set_user_index(status[ip]);
    input_particles.push_back(particle);
@@ -150,24 +153,37 @@ void processEvents(TString dirname, int color)
   vector<fastjet::PseudoJet> jets = sorted_by_pt(clust_seq.inclusive_jets(ptmin));
   for(unsigned int i = 0; i < jets.size(); i++) {
    hptJet->Fill(jets[i].perp());
+   vector<fastjet::PseudoJet> constituents = jets[i].constituents();
+   for(fastjet::PseudoJet ptl : constituents)
+    hptJetHad->Fill(ptl.perp());
    // jet structure
-   if(jets[i].perp()>40.0) {
+   if(jets[i].perp()>30.0) {
     vector<fastjet::PseudoJet> constituents = jets[i].constituents();
     for(fastjet::PseudoJet ptl : constituents) {
      double phi = ptl.delta_R(jets[i]);
-     hRho->Fill(phi, ptl.perp());
+     if(ptl.user_index()==1) hRho->Fill(phi, ptl.perp());
      if(ptl.user_index()==0) hRhoMed->Fill(phi, ptl.perp());
     }
-   }
+   } // hard jet (jetRho) loop
   }
  } // end of event loop
  // normalizing histos
  const char* drawOpt = iPlotSeq==0? "" : "same";
- cpt->cd();
- hpt->Scale(1./(hpt->GetBinWidth(1)*2. * nevents));
- hpt->Draw(drawOpt);
+ // --- jet pT
+ cptJet->cd();
+ //hpt->Scale(1./(hpt->GetBinWidth(1)*2. * nevents));
+ //hpt->Draw(drawOpt);
  hptJet->Scale(1./(hptJet->GetBinWidth(1)*2. * nevents));
- hptJet->Draw("same");
+ hptJet->SetLineColor(color);
+ hptJet->SetMarkerColor(color);
+ hptJet->Draw(drawOpt);
+ // --- hadron pT
+ cptHad->cd();
+ hptJetHad->Scale(1./(hptJet->GetBinWidth(1)*2. * nevents));
+ hptJetHad->SetLineColor(color);
+ hptJetHad->SetMarkerColor(color);
+ hptJetHad->Draw(drawOpt);
+ // --- jet substructure
  cRho->cd();
  hRho->Scale(1./(nevents));
  hRho->SetLineColor(color);
