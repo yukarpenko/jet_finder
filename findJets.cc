@@ -30,7 +30,13 @@ void outputJetTotalsWfracs(ofstream& fout, int iEvent, vector<fastjet::PseudoJet
 void outputFullJets(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets);
 void outputFullJets_WTA(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets, double R);
 
-void processEvents(TString dirname, int color);
+namespace Events {
+const int ST_JET_PARTON = 11;
+const int ST_JET_HADRON = 31;
+
+void readEvents(TString dirname);
+void makePlots(int color);
+}
 
 TCanvas *cptJet, *cptHad, *cRho;
 
@@ -40,9 +46,12 @@ int main(int argc, char* argv[]) {
  cptHad = new TCanvas("hadron_pT","hadron_pT") ;
  cRho = new TCanvas("jet structure","jet structure") ;
  time_t time0 = time(nullptr);
- processEvents("../../eposvhlle.out/b0b34_trig50_vac7/events/", kBlack);
- processEvents("../../eposvhlle.out/b0b34_trig50_hybM_NOrec/events/", kGreen);
- processEvents("../../eposvhlle.out/b0b34_trig50_hybM_rec/events/", kRed);
+ Events::readEvents("../../eposvhlle.out/b0b34_trig50_vac7/events/");
+ Events::makePlots(kBlack);
+ Events::readEvents("../../eposvhlle.out/b0b34_trig50_hybM_NOrec/events/");
+ Events::makePlots(kGreen);
+ //Events::readEvents("../../eposvhlle.out/b0b34_trig50_hybM_rec/events/");
+ //Events::makePlots(kRed);
  time_t time1 = time(nullptr);
  cout << "walltime: " << difftime(time1, time0) << " s.\n";
  //----------------------------------------------------------
@@ -83,12 +92,19 @@ int main(int argc, char* argv[]) {
   return 0;
 }
 
+namespace Events {
 
-void processEvents(TString dirname, int color)
+ const int NP = 50000;
+ Int_t id[NP], status[NP];
+ Float_t px [NP], py[NP], pz[NP], E[NP];
+ Short_t ele[NP];
+ Int_t npart;
+ TChain *tree;
+
+void readEvents(TString dirname)
 {
- static int iPlotSeq = 0;
  // loadnig the tree
- TChain *tree = new TChain("treefin;1");
+ tree = new TChain("treefin;1");
  TSystemDirectory dir ("rootfiles",dirname);
  TList *files = dir.GetListOfFiles();
  TSystemFile *file;
@@ -100,13 +116,6 @@ void processEvents(TString dirname, int color)
    tree->Add(dirname+fname);
  }
  cout << endl;
- // accessing the events
- const int NP = 50000 ;
- Int_t id[NP], status[NP] ;
- Float_t px [NP], py[NP], pz[NP], E[NP] ;
- Short_t ele[NP] ;
- Int_t npart ;
- int nevents = tree->GetEntries() ;
  tree->SetBranchAddress("px",&px[0]) ;
  tree->SetBranchAddress("py",&py[0]) ;
  tree->SetBranchAddress("pz",&pz[0]) ;
@@ -115,7 +124,12 @@ void processEvents(TString dirname, int color)
  tree->SetBranchAddress("status",&status[0]) ;
  tree->SetBranchAddress("ele",&ele[0]) ;
  tree->SetBranchAddress("npart",&npart) ;
- cout<<"processing, events = "<<nevents<<endl ;
+}
+
+
+void makePlots(int color)
+{
+ static int iPlotSeq = 0;
  TH1F *hpt = new TH1F(("hpt"+to_string(iPlotSeq)).c_str(),
     ("hpt"+to_string(iPlotSeq)).c_str(), 10, 0., 100.);
  TH1F *hptJet = new TH1F(("hptJet"+to_string(iPlotSeq)).c_str(),
@@ -126,6 +140,8 @@ void processEvents(TString dirname, int color)
     ("rhoJet"+to_string(iPlotSeq)).c_str(), 20, 0., 0.6);
   TH1F *hRhoMed = new TH1F(("rhoMed"+to_string(iPlotSeq)).c_str(),
     ("rhoMed"+to_string(iPlotSeq)).c_str(), 20, 0., 0.6);
+ int nevents = tree->GetEntries() ;
+ cout<<"processing, events = "<<nevents<<endl;
  for(int iev=0; iev<nevents; iev++) { // event loop
   tree->GetEntry(iev) ;
   vector<fastjet::PseudoJet> input_particles;
@@ -137,7 +153,7 @@ void processEvents(TString dirname, int color)
     hpt->Fill(pt);
    }
    // constructing Fastjet input
-   if(((status[ip]==1 && pt>0.5) || (status[ip]==0 && pt>1.5)) && fabs(rap)<1.0) {
+   if((status[ip]==ST_JET_PARTON && pt>0.5) && fabs(rap)<1.0) {
    fastjet::PseudoJet particle (px[ip], py[ip], pz[ip], E[ip]);
    particle.set_user_index(status[ip]);
    input_particles.push_back(particle);
@@ -193,7 +209,10 @@ void processEvents(TString dirname, int color)
  hRhoMed->SetMarkerStyle(22);
  hRhoMed->Draw("same");
  iPlotSeq++;
+ delete tree;
 }
+
+} // end namespace events
 
 
 void outputJetTotalsWfracs(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets)
