@@ -143,14 +143,30 @@ void outputFullJets(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets
  for (unsigned int i = 0; i < jets.size(); i++) {
   vector<fastjet::PseudoJet> constituents = jets[i].constituents();
   bool leadingTrigg = false;
-  for(fastjet::PseudoJet ptl : constituents)
+  map<int,double> origins; // map containing the indexes of jets the partons are coming from
+  for(fastjet::PseudoJet ptl : constituents) { // loop1: find the leading contribution
    if(ptl.perp() > 5.0) leadingTrigg = true;
+   int origJet = ptl.user_index(); // get back the index of original jet
+   if(origins.count(origJet)==0)
+    origins[origJet] = sqrt(ptl.px()*ptl.px()+ptl.py()*ptl.py());
+   else
+    origins[origJet] += sqrt(ptl.px()*ptl.px()+ptl.py()*ptl.py());//ptl.perp();
+  }
+  int leadOrigin=99999;
+  double maxContrib = 0.0;
+  for(auto it = origins.begin(); it != origins.end(); ++it) {
+   if(it->second>maxContrib) {
+    maxContrib = it->second;
+    leadOrigin = it->first;
+   }
+  }
   //if(leadingTrigg)
   for(fastjet::PseudoJet ptl : constituents) {
    double phi = ptl.delta_R(jets[i]);
    fout << setw(8) << iEvent << setw(8) << i
      << setw(14) << jets[i].perp() << setw(14) << jets[i].rap()
-     << setw(14) << ptl.perp() << setw(14) << phi << endl;
+     << setw(14) << ptl.perp() << setw(14) << phi
+     << setw(3) << (ptl.user_index()==leadOrigin ? 1 : 0) << endl;
    }
  }
 }
