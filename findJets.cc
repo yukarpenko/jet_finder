@@ -18,16 +18,16 @@ void outputFullJets_WTA(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& 
 
 int main(int argc, char* argv[]) {
 
- if(argc != 3) {
-  cout << "usage: ./findJets  in_file  out_file\n";
+ if(argc != 4) {
+  cout << "usage: ./findJets  R  in_file  out_file\n";
   return 1;
  }
- ifstream fin(argv[1]);
+ ifstream fin(argv[2]);
  if(!fin) {
   cout << "cannot open input file: " << argv[1] << endl;
   return 1;
  }
- ofstream fout(argv[2]);
+ ofstream fout(argv[3]);
  if(!fout) {
   cout << "cannot open output file: " << argv[2] << endl;
   return 1;
@@ -87,6 +87,12 @@ int main(int argc, char* argv[]) {
   // create a jet definition: 
   // a jet algorithm with a given radius parameter
   double R = 0.4;
+  if(R = std::atof(argv[1])) {
+   ; //cout << "R = " << R << endl;
+  } else {
+   cout << "R value undefined: " << argv[1] << endl;
+   return 1;
+  }
   fastjet::JetDefinition jet_def(fastjet::antikt_algorithm, R);
   // run the jet clustering with the above jet definition
   fastjet::ClusterSequence clust_seq(input_particles, jet_def);
