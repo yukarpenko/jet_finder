@@ -12,24 +12,30 @@
 
 using namespace std;
 
-void outputJetTotalsWfracs(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets);
+void outputJetTotalsWfracs(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets,
+       std::map<int, std::map<int, double> >& genJetPt);
 void outputFullJets(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets);
 void outputFullJets_WTA(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets, double R);
 
 int main(int argc, char* argv[]) {
 
- if(argc != 4) {
-  cout << "usage: ./findJets  R  in_file  out_file\n";
+ if(argc != 5) {
+  cout << "usage: ./findJets  R  in_file  jet_totals_file  out_file\n";
   return 1;
  }
  ifstream fin(argv[2]);
  if(!fin) {
-  cout << "cannot open input file: " << argv[1] << endl;
+  cout << "cannot open input file: " << argv[2] << endl;
   return 1;
  }
- ofstream fout(argv[3]);
+ ifstream fin_full(argv[3]);
+ if(!fin_full) {
+  cout << "cannot open input file: " << argv[3] << endl;
+  return 1;
+ }
+ ofstream fout(argv[4]);
  if(!fout) {
-  cout << "cannot open output file: " << argv[2] << endl;
+  cout << "cannot open output file: " << argv[4] << endl;
   return 1;
  }
  // read in the events
@@ -66,6 +72,18 @@ int main(int argc, char* argv[]) {
   pzIn[nEvents].push_back(__pz);
   timeIn[nEvents].push_back(__time);
  } // end file read
+ evIdCurr = 2147483646;
+ int nEvents2 = -1; // similar event count for the 2nd file read loop
+ std::map<int, std::map<int, double> > genJetPt; // pt of generator level jets
+ while (getline(fin_full, line)) {  // reading the full jets
+  istringstream sline(line);
+  int eventId, jetId;
+  double pxtot, pytot, pztot, Etot;
+  sline >> eventId >> jetId >> Etot >> pxtot >> pytot >> pztot;
+  if(eventId!=evIdCurr) nEvents2++;
+  evIdCurr = eventId;
+  genJetPt[nEvents2][jetId] = sqrt(pxtot*pxtot+pytot*pytot);
+ } // end 2nd file (full jets) read
  //----------------------------------------------------------
  for(int iEvent=0; iEvent<nEvents+1; iEvent++) { // find jets in each event
   vector<fastjet::PseudoJet> input_particles;
@@ -101,7 +119,7 @@ int main(int argc, char* argv[]) {
   double ptmin = 3.0;
   vector<fastjet::PseudoJet> inclusive_jets = sorted_by_pt(clust_seq.inclusive_jets(ptmin));
  
-  outputJetTotalsWfracs(fout, iEvent, inclusive_jets);
+  outputJetTotalsWfracs(fout, iEvent, inclusive_jets, genJetPt);
   //outputFullJets(fout, iEvent, inclusive_jets);
   //outputFullJets_WTA(fout, iEvent, inclusive_jets, R);
 
@@ -110,7 +128,8 @@ int main(int argc, char* argv[]) {
 }
 
 
-void outputJetTotalsWfracs(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets)
+void outputJetTotalsWfracs(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets,
+       std::map<int, std::map<int, double> >& genJetPt)
 // prints global jet properties (energy-momentum and fractions) to a file
 {
  for (unsigned int i = 0; i < jets.size(); i++) {
@@ -125,6 +144,20 @@ void outputJetTotalsWfracs(ofstream& fout, int iEvent, vector<fastjet::PseudoJet
    else
     origins[origJet] += sqrt(ptl.px()*ptl.px()+ptl.py()*ptl.py());//ptl.perp();
   }
+  int leadOrigin=99999;
+  double maxContrib = 0.0;
+  for(auto it = origins.begin(); it != origins.end(); ++it) {
+   if(it->second > maxContrib) {
+    maxContrib = it->second;
+    leadOrigin = it->first;
+   }
+  }
+  double genLevelPt = 0.;
+  if(genJetPt.find(iEvent)!=genJetPt.end() &&
+    genJetPt[iEvent].find(leadOrigin)!=genJetPt[iEvent].end())
+   genLevelPt = genJetPt[iEvent][leadOrigin];
+  else
+   cout << "origin_not_found[" << iEvent << " " << leadOrigin << "]";
   vector <double> listFractions;
   listFractions.reserve(10);
   for(auto it = origins.begin(); it != origins.end(); ++it) {
@@ -138,7 +171,8 @@ void outputJetTotalsWfracs(ofstream& fout, int iEvent, vector<fastjet::PseudoJet
      << setw(14) << jets[i].px() << setw(14) << jets[i].py()
      << setw(14) << jets[i].pz()
      << setw(14) << listFractions[0] << setw(14) << listFractions[1]
-     << setw(14) << listFractions[2] << setw(14) << listFractions[3] << endl;
+     << setw(14) << listFractions[2] << setw(14) << listFractions[3]
+     << setw(14) << genLevelPt << endl;
  }
 }
 
@@ -161,7 +195,7 @@ void outputFullJets(ofstream& fout, int iEvent, vector<fastjet::PseudoJet>& jets
   int leadOrigin=99999;
   double maxContrib = 0.0;
   for(auto it = origins.begin(); it != origins.end(); ++it) {
-   if(it->second>maxContrib) {
+   if(it->second > maxContrib) {
     maxContrib = it->second;
     leadOrigin = it->first;
    }
